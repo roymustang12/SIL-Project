@@ -436,7 +436,10 @@ class TopoGuardRyu(app_manager.RyuApp):
             if self._handle_probe_reply(pkt, pk, src_mac):
                 return
 
-        self._handle_host_traffic(pkt, pk, src_mac, pp)
+        # If host traffic violates host-move preconditions, do not let the
+        # spoofed source update controller host-location/L2 learning state.
+        if not self._handle_host_traffic(pkt, pk, src_mac, pp):
+            return
 
         # Basic L2 forwarding (standalone mode).
         dpid = datapath.id
@@ -469,11 +472,11 @@ class TopoGuardRyu(app_manager.RyuApp):
     def _is_broadcast(self, mac_addr: str) -> bool:
         return mac_addr == "ff:ff:ff:ff:ff:ff"
 
-    def _handle_host_traffic(self, pkt: packet.Packet, pk: PortKey, src_mac: str, pp: PortProperty) -> None:
+    def _handle_host_traffic(self, pkt: packet.Packet, pk: PortKey, src_mac: str, pp: PortProperty) -> bool:
         # Transit traffic on inter-switch ports must never be interpreted as
         # first-hop host traffic.
         if pp.device_type == DeviceType.SWITCH:
-            return
+            return True
 
         previous = self.topoguard_mac_port.get(src_mac)
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
@@ -482,7 +485,7 @@ class TopoGuardRyu(app_manager.RyuApp):
             self.topoguard_mac_port[src_mac] = pk
             pp.add_host(src_mac)
             pp.set_port_any()
-            return
+            return True
 
         if previous == pk:
             if pp.device_type == DeviceType.SWITCH:
@@ -494,7 +497,7 @@ class TopoGuardRyu(app_manager.RyuApp):
             elif pp.device_type == DeviceType.ANY:
                 pp.set_port_host()
                 pp.disable_host_shutdown(src_mac)
-            return
+            return True
 
         # Host moved to a different first-hop port.
         previous_pp = self.port_state.get(previous)
@@ -503,7 +506,7 @@ class TopoGuardRyu(app_manager.RyuApp):
             self.topoguard_mac_port[src_mac] = pk
             pp.add_host(src_mac)
             pp.set_port_host()
-            return
+            return True
 
         if previous_pp and src_mac in previous_pp.hosts and not previous_pp.hosts[src_mac]:
             self.logger.warning(
@@ -512,13 +515,16 @@ class TopoGuardRyu(app_manager.RyuApp):
                 previous.port,
             )
 
-        if ip_pkt is not None:
-            if self._send_host_probe(ip_pkt.src, src_mac, previous):
-                self.probed_ports[previous].append(HostEntity(mac=src_mac, ip=ip_pkt.src))
+            if ip_pkt is not None:
+                if self._send_host_probe(ip_pkt.src, src_mac, previous):
+                    self.probed_ports[previous].append(HostEntity(mac=src_mac, ip=ip_pkt.src))
+            # Critical: do not commit suspicious move into host-location tables.
+            return False
 
         self.topoguard_mac_port[src_mac] = pk
         pp.add_host(src_mac)
         pp.set_port_host()
+        return True
 
     def _send_host_probe(self, ip_addr: str, mac_addr: str, out_port: PortKey) -> bool:
         datapath = self.datapaths.get(out_port.dpid)
