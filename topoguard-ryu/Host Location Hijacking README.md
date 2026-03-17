@@ -58,6 +58,8 @@ sh ovs-ofctl -O OpenFlow13 dump-flows s1 | grep "dl_dst=00:00:00:00:00:02"
 h1 ip link set dev h1-eth0 down
 h1 ip link set dev h1-eth0 address 00:00:00:00:00:02
 h1 ip link set dev h1-eth0 up
+# Real attacker behavior: also claim victim IP so h1 can answer as 10.0.0.2
+h1 ip addr add 10.0.0.2/24 dev h1-eth0
 
 # Deterministic relearn trigger (matches hlh_auto.py)
 sh ovs-ofctl -O OpenFlow13 del-flows s1
@@ -82,7 +84,8 @@ sh ovs-ofctl -O OpenFlow13 dump-flows s1 | grep "dl_dst=00:00:00:00:00:02"
 ### Expected Output (Baseline)
 
 - `pre` (before attack): low packet loss (usually `0%`).
-- `post` (after attack): flow output for `dl_dst=00:00:00:00:00:02` on `s1` can include attacker-side port, and/or reachability degrades.
+- `post` (after attack): flow output for `dl_dst=00:00:00:00:00:02` on `s1` can include attacker-side port.
+- With impersonation enabled on attacker, ping to `10.0.0.2` may still succeed even though traffic is hijacked.
 - Baseline controller log does not report TopoGuard host-move violations.
 
 Exit Mininet with `exit`, then clean up before the next run:
@@ -130,6 +133,7 @@ sh ovs-ofctl -O OpenFlow13 dump-flows s1 | grep "dl_dst=00:00:00:00:00:02"
 h1 ip link set dev h1-eth0 down
 h1 ip link set dev h1-eth0 address 00:00:00:00:00:02
 h1 ip link set dev h1-eth0 up
+h1 ip addr add 10.0.0.2/24 dev h1-eth0
 sh ovs-ofctl -O OpenFlow13 del-flows s1
 sh ovs-ofctl -O OpenFlow13 del-flows s2
 sh ovs-ofctl -O OpenFlow13 add-flow s1 "priority=0,actions=CONTROLLER:65535"
@@ -152,7 +156,7 @@ sh ovs-ofctl -O OpenFlow13 dump-flows s1 | grep "dl_dst=00:00:00:00:00:02"
 ### Expected Output (TopoGuard)
 
 - `pre` (before attack): low packet loss (usually `0%`).
-- `post` (after attack): victim reachability remains low-loss and `s1` flow output for victim MAC stays on victim-side path.
+- `post` (after attack): victim reachability remains low-loss and `s1` flow output for victim MAC stays on victim-side path (no attacker-port takeover).
 - Controller log records host-move violation, for example:
 
 ```text

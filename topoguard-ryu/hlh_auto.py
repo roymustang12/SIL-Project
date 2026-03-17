@@ -6,7 +6,7 @@ Run with sudo:
 
 Scenario:
 1. Warm up legitimate host learning for victim h2 (MAC ...:02).
-2. Attacker h1 spoofs victim MAC and emits traffic.
+2. Attacker h1 spoofs victim MAC and also claims victim IP.
 3. Rebuild switch flows and inspect s1 flow output for victim MAC.
 
 Reported checks:
@@ -230,6 +230,9 @@ def run_trial(name: str, app_path: Path) -> TrialResult:
         h1.cmd("ip link set dev h1-eth0 down")
         h1.cmd(f"ip link set dev h1-eth0 address {VICTIM_MAC}")
         h1.cmd("ip link set dev h1-eth0 up")
+        # Realistic impersonation: attacker also claims victim IP so it can
+        # answer victim-bound packets if forwarding is hijacked.
+        h1.cmd(f"ip addr add {VICTIM_IP}/24 dev h1-eth0 >/dev/null 2>&1")
         # Clear dataplane first so spoofed packets must hit controller.
         clear_switch_flows()
         time.sleep(0.3)
