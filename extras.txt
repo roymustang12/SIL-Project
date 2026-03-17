@@ -1,0 +1,5 @@
+# Force fresh forwarding decisions
+sh ovs-ofctl -O OpenFlow13 del-flows s1
+sh ovs-ofctl -O OpenFlow13 add-flow s1 priority=0,actions=CONTROLLER:65535
+sh ovs-ofctl -O OpenFlow13 del-flows s2
+sh ovs-ofctl -O OpenFlow13 add-flow s2 priority=0,actions=CONTROLLER:65535
