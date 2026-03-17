@@ -1,0 +1,11 @@
+1 RLock(s) were not greened, to fix this error make sure you run eventlet.monkey_patch() before importing any other modules.
+loading app /home/yuvraj/repos/SIL-Project/topoguard-ryu/insecure_baseline_ryu.py
+loading app ryu.controller.ofp_handler
+instantiating app /home/yuvraj/repos/SIL-Project/topoguard-ryu/insecure_baseline_ryu.py of InsecureBaselineRyu
+Insecure baseline controller initialized
+instantiating app ryu.controller.ofp_handler of OFPHandler
+[INSECURE] Learned link 1:3 -> 2:2 from LLDP packet-in on local port 2
+[INSECURE] Learned link 2:2 -> 1:3 from LLDP packet-in on local port 3
+[INSECURE] Learned link 1:3 -> 2:2 from LLDP packet-in on local port 2
+[INSECURE] Learned link 2:2 -> 1:3 from LLDP packet-in on local port 3
+[INSECURE] Learned link 2:1 -> 1:1 from LLDP packet-in on local port 1

@@ -1,0 +1,12 @@
+1 RLock(s) were not greened, to fix this error make sure you run eventlet.monkey_patch() before importing any other modules.
+loading app /home/yuvraj/repos/SIL-Project/topoguard-ryu/topoguard_ryu.py
+loading app ryu.controller.ofp_handler
+instantiating app /home/yuvraj/repos/SIL-Project/topoguard-ryu/topoguard_ryu.py of TopoGuardRyu
+TopoGuard Ryu app initialized
+instantiating app ryu.controller.ofp_handler of OFPHandler
+Violation: receive falsified LLDP (missing MAC TLV)
+Violation: Receive LLDP packet from HOST port: sw=1 port=1
+Violation: Host Move from switch 1 port 1 without Port ShutDown
+Violation: Host Move from switch 1 port 2 without Port ShutDown
+Violation: Host Move from switch 1 port 1 without Port ShutDown
+Violation: Host Move from switch 1 port 2 without Port ShutDown
