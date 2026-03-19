@@ -5,7 +5,7 @@ This guide shows how to run the same forged-LLDP link fabrication attack manuall
 1. `insecure_baseline_ryu.py` (expected to be vulnerable)
 2. `topoguard_ryu.py` (expected to defend)
 
-At the end, you can run `ab_compare.py` to automate the same A/B test.
+At the end, you can run `lf_auto.py` to automate the same A/B test.
 
 ## Test Setup
 
@@ -114,7 +114,7 @@ Violation: Receive LLDP packet from HOST port: sw=1 port=1
 After the manual runs above, you can execute the automated comparison:
 
 ```bash
-sudo python3 ab_compare.py
+sudo python3 lf_auto.py
 ```
 
 It prints:

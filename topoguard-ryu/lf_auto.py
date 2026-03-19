@@ -130,7 +130,7 @@ def run_trial(name: str, app_path: Path) -> TrialResult:
     setLogLevel("warning")
     subprocess.run(["mn", "-c"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    log_path = ROOT / f"ab_{name}.log"
+    log_path = ROOT / f"lf_{name}.log"
     controller = start_controller(app_path, log_path)
 
     if not wait_for_tcp_listener("127.0.0.1", 6653, timeout_s=12.0):
